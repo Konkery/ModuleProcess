@@ -1,0 +1,9 @@
+console.log("    ______           __    _ __");
+console.log("   / ____/________  / /   (_) /____");
+console.log("  / __/ / ___/ __ \\/ /   / / __/ _ \\");
+console.log(" / /___/ /__/ /_/ / /___/ / /_/  __/");
+console.log("/_____/\\___/\\____/_____/_/\\__/\\___/");
+console.log("");
+console.log("EcoLite v0.0.6");
+let Process = new (require("ModuleProcess.min.js"))();
+Process.Run();
