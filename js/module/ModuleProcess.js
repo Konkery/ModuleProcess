@@ -251,8 +251,8 @@ class ClassProcess {
                             }
                             else {
                                 Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
-                                this._Wifi.SetNTPESP32('192.168.50.251', this._TimeZone);
-                                E.setTimeZone(this._TimeZone);
+                                this._Wifi.SetNTPESP32(netconf.ntp.hostname, netconf.ntp.timezone);
+                                E.setTimeZone(netconf.ntp.timezone);
                             }
                             this.Sub_GetBoardMData();
                             this.SetSystemTime();
