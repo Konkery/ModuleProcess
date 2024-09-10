@@ -26,12 +26,14 @@ ACTUATOR_NAME = 'ClassActuator';
 SENSOR_NAME = 'ClassSensor';
 ARCHITECT_NAME = 'SensorManager';
 WIFI_NAME = 'Network';
+WS_NAME = 'WSServer';
 
 // Сообщения
 MSG_BOOTUP_SUCCESS = 'Boot up sequence complete!';
 MSG_RTC_SUCCESS = 'System time is set via RTC clock module';
 MSG_RTC_ADJUSTED = 'Date of RTC clock module adjusted';
 MSG_RTC_NOT_FOUND = 'RTC clock not found!';
+MSG_RTC_NOT_SPECIFIED = 'RTC clock is not specified in devife.conf!';
 MSG_TIME_SET_FAIL = 'Failed to properly set system time!';
 MSG_TIME_SET_SUCCESS = 'System time set to';
 MSG_MODULE_LOADED = 'loaded.';
@@ -39,9 +41,14 @@ MSG_MODULE_NOT_FOUND = 'not found!';
 MSG_MODULE_UNDEFINED = 'Undefined in config file!';
 MSG_WIFI_STARTUP = 'Starting up Network. . .';
 MSG_WIFI_CONNECTED = 'Connected! IP: ';
+MSG_MDNS_STATUS = 'MDNS: ';
+MSG_MDNS_LOCAL = '.local';
 MSG_WIFI_ERROR = 'Failed to start up WiFi! :: ';
+MSG_WSS_CONNECTED = 'WebSocket Server listens to port ';
+MSG_WSS_ERROR = 'WebSocket Server failed to run';
 MSG_BOARD_ID = 'Board ID:';
 MSG_LOAD_FILE = 'LoadFile set to:';
+MSG_SUB = 'Subscribed to system events.'
 MSG_EMPTY = '';
 
 MSG_FATAL_CANT_FIND = 'FATAL ERROR>> Cannot find';
@@ -109,6 +116,8 @@ class ClassProcess {
             }
             
             this._BoardID = `${process.env.BOARD} ${process.env.SERIAL} ${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
+            this._BoardName = `${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
+            this._BoardSerial = `${process.env.SERIAL}`;
             this._TimeZone = (this._FileReader.readJSON(MAIN_CONFIG, true).timezone || 0);
             
             Logger.Log(Logger.LogLevel.INFO, `${MSG_BOARD_ID} ${this._BoardID}`);        
@@ -208,6 +217,18 @@ class ClassProcess {
                 Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(ARCHITECT_NAME, mods[ARCHITECT_NAME]));
             }
 
+            try {// Websocket server
+                const WSServer = new (require(mods[WS_NAME]))();
+                Object.defineProperty(global, WS_NAME, ({
+                    get: () => WSServer
+                }));
+                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(WS_NAME));
+            }
+            catch (e) {
+                console.log(e);
+                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(WS_NAME, mods[WS_NAME]));
+            }
+
         /** Internet connection and system time*/
             if (!(this._FileReader.list().includes(NETWORK_CONFIG))) {
                 Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(WIFI_NAME, NETWORK_CONFIG));
@@ -224,6 +245,16 @@ class ClassProcess {
                         this._Wifi.Init(netconf, undefined, () => {
                             this._HaveWiFi = true;
                             Logger.Log(Logger.LogLevel.INFO, MSG_WIFI_CONNECTED + this._Wifi._Ip);
+                            let WSRes = WSServer.Run();
+                            if (WSRes == -1) {
+                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                            }
+                            else {
+                                Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                this._Wifi.SetNTPESP32('192.168.50.251', this._TimeZone);
+                                E.setTimeZone(this._TimeZone);
+                            }
+                            this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
                             Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
@@ -233,10 +264,23 @@ class ClassProcess {
                         let wfbus = netconf.wifibus;
                         let bus = UARTbus._UARTbus[wfbus.index].IDbus;
                         bus.setup(wfbus.baudrate);
+                        P4.mode('output');
                         this._Wifi = new (require(mods[WIFI_NAME]))();
                         this._Wifi.Init(netconf, bus, () => {
                             this._HaveWiFi = true;
                             Logger.Log(Logger.LogLevel.INFO, MSG_WIFI_CONNECTED + this._Wifi._Ip);
+                            if (this._Wifi._mDNS != MSG_EMPTY) {
+                                Logger.Log(Logger.LogLevel.INFO, MSG_MDNS_STATUS + this._Wifi._mDNS + MSG_MDNS_LOCAL);
+                            }
+                            let WSRes = WSServer.Run();
+                            if (WSRes == -1) {
+                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                            }
+                            else {
+                                Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                Object.emit('blink_both');
+                            }
+                            this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
                             Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
@@ -251,6 +295,13 @@ class ClassProcess {
                 }
             }
         }
+    }
+    Sub_GetBoardMData(){
+        Object.on('proc-get-systemdata', () => {
+            let packet = {com: 'proc-return-systemdata', args: [this._BoardName, this._BoardSerial]};
+            Object.emit('proc-return', packet);
+        });
+        Logger.Log(Logger.LogLevel.INFO, MSG_SUB);
     }
     /**
      * @method
@@ -303,25 +354,31 @@ class ClassProcess {
      */
     SetSystemTime() {
         try {
-            this._RTC = SensorManager.CreateDevice(this.GetModuleIdByName(RTC_NODE));
-            let ts = this._RTC[0]._ThisSensor.GetTimeUnix();
+            let node_name = this.GetModuleIdByName(RTC_NODE);
 
-            if (ts <= TS_JAN_FIRST_2000 || ts >= TS_JAN_FIRST_2100) {
-                Logger.Log(Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
-            }
+            if (typeof node_name === 'undefined')
+                Logger.Log(Logger.LogLevel.ERROR, MSG_RTC_NOT_SPECIFIED);
             else {
-                let sys_t = Math.floor(new Date().getTime() / 1000);
-                if (sys_t <= TS_JAN_FIRST_2000 || sys_t >= TS_JAN_FIRST_2100) {
-                    setTime(ts);
-                    this._RTC[0].Start(1000);
-                    E.setTimeZone(this._TimeZone);
-                    Logger.Log(Logger.LogLevel.INFO, MSG_RTC_SUCCESS);
+                this._RTC = SensorManager.CreateDevice(node_name);
+                let ts = this._RTC[0]._ThisSensor.GetTimeUnix();
+
+                if (ts <= TS_JAN_FIRST_2000 || ts >= TS_JAN_FIRST_2100) {
+                    Logger.Log(Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
                 }
                 else {
-                    this._RTC[0]._ThisSensor.SetTime(new Date());
-                    this._RTC[0].Start(1000);
-                    E.setTimeZone(this._TimeZone);
-                    Logger.Log(Logger.LogLevel.INFO, MSG_RTC_ADJUSTED);
+                    let sys_t = Math.floor(new Date().getTime() / 1000);
+                    if (sys_t <= TS_JAN_FIRST_2000 || sys_t >= TS_JAN_FIRST_2100) {
+                        setTime(ts);
+                        this._RTC[0].Start(1000);
+                        E.setTimeZone(this._TimeZone);
+                        Logger.Log(Logger.LogLevel.INFO, MSG_RTC_SUCCESS);
+                    }
+                    else {
+                        this._RTC[0]._ThisSensor.SetTime(new Date());
+                        this._RTC[0].Start(1000);
+                        E.setTimeZone(this._TimeZone);
+                        Logger.Log(Logger.LogLevel.INFO, MSG_RTC_ADJUSTED);
+                    }
                 }
             }
         }
