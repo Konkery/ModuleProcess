@@ -33,19 +33,19 @@ MSG_BOOTUP_SUCCESS = 'Boot up sequence complete!';
 MSG_RTC_SUCCESS = 'System time is set via RTC clock module';
 MSG_RTC_ADJUSTED = 'Date of RTC clock module adjusted';
 MSG_RTC_NOT_FOUND = 'RTC clock not found!';
-MSG_RTC_NOT_SPECIFIED = 'RTC clock is not specified in devife.conf!';
+MSG_RTC_NOT_SPECIFIED = 'RTC clock is not specified in device.conf!';
 MSG_TIME_SET_FAIL = 'Failed to properly set system time!';
 MSG_TIME_SET_SUCCESS = 'System time set to';
 MSG_MODULE_LOADED = 'loaded.';
 MSG_MODULE_NOT_FOUND = 'not found!';
 MSG_MODULE_UNDEFINED = 'Undefined in config file!';
 MSG_WIFI_STARTUP = 'Starting up Network. . .';
-MSG_WIFI_CONNECTED = 'Connected! IP: ';
 MSG_MDNS_STATUS = 'MDNS: ';
 MSG_MDNS_LOCAL = '.local';
 MSG_WIFI_ERROR = 'Failed to start up WiFi! :: ';
 MSG_WSS_CONNECTED = 'WebSocket Server listens to port ';
 MSG_WSS_ERROR = 'WebSocket Server failed to run';
+MSG_WSS_SKIPPED = 'No connection to network. WebSocket server start skipped.';
 MSG_BOARD_ID = 'Board ID:';
 MSG_LOAD_FILE = 'LoadFile set to:';
 MSG_SUB = 'Subscribed to system events.'
@@ -102,6 +102,12 @@ class ClassProcess {
             let mods = this._FileReader.readJSON(MAIN_CONFIG, true)[MODULES_NODE];
             if (!mods) { throw `${MSG_FATAL_CANT_FIND} ${MSG_FATAL_MODULES}`;}
 
+            this._BoardID = `${process.env.BOARD} ${process.env.SERIAL} ${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
+            this._BoardName = `${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
+            this._LogCreds = this._FileReader.readJSON(MAIN_CONFIG, true).logger;
+            this._BoardSerial = `${process.env.SERIAL}`;
+            this._TimeZone = (this._FileReader.readJSON(MAIN_CONFIG, true).timezone || 0);
+
             let Logger;
             try {// Logger
                 Logger = new (require(mods[LOGGER_NAME]))();
@@ -114,11 +120,6 @@ class ClassProcess {
                 console.log(`[${this.GetSystemTime()}] FATAL ERROR>> ${this.GetFailString(LOGGER_NAME, mods[LOGGER_NAME])}`)
                 return;
             }
-            
-            this._BoardID = `${process.env.BOARD} ${process.env.SERIAL} ${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
-            this._BoardName = `${this._FileReader.readJSON(MAIN_CONFIG, true).name || MSG_EMPTY}`;
-            this._BoardSerial = `${process.env.SERIAL}`;
-            this._TimeZone = (this._FileReader.readJSON(MAIN_CONFIG, true).timezone || 0);
             
             Logger.Log(Logger.LogLevel.INFO, `${MSG_BOARD_ID} ${this._BoardID}`);        
             Logger.Log(Logger.LogLevel.INFO, `${MSG_LOAD_FILE} ${this._LoadFile}`);
@@ -242,22 +243,22 @@ class ClassProcess {
                 try {
                     if (process.env.MODULES.includes(WIFI)) {                   
                         this._Wifi = new (require(mods[WIFI_NAME]))();
-                        this._Wifi.Init(netconf, undefined, () => {
-                            this._HaveWiFi = true;
-                            Logger.Log(Logger.LogLevel.INFO, MSG_WIFI_CONNECTED + this._Wifi._Ip);
-                            let WSRes = WSServer.Run();
-                            if (WSRes == -1) {
-                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
-                            }
-                            else {
-                                Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
-                                this._Wifi.SetNTPESP32(netconf.ntp.hostname, netconf.ntp.timezone);
-                                E.setTimeZone(netconf.ntp.timezone);
+                        this._Wifi.Init(netconf, undefined, (res) => {
+                            this._HaveWiFi = res;
+                            if (this._HaveWiFi) {
+                                let WSRes = WSServer.Run();
+                                if (WSRes == -1) {
+                                    Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                                }
+                                else {
+                                    Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                }
                             }
                             this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
                             Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                            Object.emit('complete');
                         });              
                     }
                     else {
@@ -266,24 +267,25 @@ class ClassProcess {
                         bus.setup(wfbus.baudrate);
                         P4.mode('output');
                         this._Wifi = new (require(mods[WIFI_NAME]))();
-                        this._Wifi.Init(netconf, bus, () => {
-                            this._HaveWiFi = true;
-                            Logger.Log(Logger.LogLevel.INFO, MSG_WIFI_CONNECTED + this._Wifi._Ip);
-                            if (this._Wifi._mDNS != MSG_EMPTY) {
-                                Logger.Log(Logger.LogLevel.INFO, MSG_MDNS_STATUS + this._Wifi._mDNS + MSG_MDNS_LOCAL);
-                            }
-                            let WSRes = WSServer.Run();
-                            if (WSRes == -1) {
-                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                        this._Wifi.Init(netconf, bus, (res) => {
+                            this._HaveWiFi = res;
+                            if (this._HaveWiFi) {
+                                let WSRes = WSServer.Run();
+                                if (WSRes == -1) {
+                                    Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                                }
+                                else {
+                                    Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                }
                             }
                             else {
-                                Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
-                                Object.emit('blink_both');
+                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_SKIPPED);
                             }
                             this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
                             Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                            Object.emit('complete');
                         });
                     }
                 }
@@ -292,6 +294,7 @@ class ClassProcess {
                     this.SetSystemTime();
                     this.CheckSystemTime();
                     Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                    Object.emit('complete');
                 }
             }
         }
