@@ -12,6 +12,8 @@ MQTT_CONFIG = 'MQTTClientConfig.json';
 // Ноды
 BUS_NODE = 'bus';
 RTC_NODE = 'RTC';
+LED_NODE = 'SysLED';
+BUZZ_NODE = 'SysBuzzer';
 MODULES_NODE = 'modules';
 DEFAULT_FILE = '.bootcde';
 
@@ -34,6 +36,10 @@ MSG_RTC_SUCCESS = 'System time is set via RTC clock module';
 MSG_RTC_ADJUSTED = 'Date of RTC clock module adjusted';
 MSG_RTC_NOT_FOUND = 'RTC clock not found!';
 MSG_RTC_NOT_SPECIFIED = 'RTC clock is not specified in device.conf!';
+MSG_LED_NOT_SPECIFIED = 'System LED is not specified in device.conf!';
+MSG_BUZZ_NOT_SPECIFIED = 'System Buzzer is not specified in device.conf!';
+MSG_LED_FOUND = 'Found system LED at pin ';
+MSG_BUZZ_FOUND = 'Found system buzzer at pin ';
 MSG_TIME_SET_FAIL = 'Failed to properly set system time!';
 MSG_TIME_SET_SUCCESS = 'System time set to';
 MSG_MODULE_LOADED = 'loaded.';
@@ -51,7 +57,7 @@ MSG_LOAD_FILE = 'LoadFile set to:';
 MSG_SUB = 'Subscribed to system events.'
 MSG_EMPTY = '';
 
-MSG_FATAL_CANT_FIND = 'FATAL ERROR>> Cannot find';
+MSG_FATAL_CANT_FIND = 'Process | CRITICAL | Cannot find';
 MSG_FATAL_MODULES = 'modules to load';
 
 TS_JAN_FIRST_2000 = 943920000;
@@ -87,6 +93,7 @@ class ClassProcess {
         this._RTC = undefined;
         this._Wifi = undefined;
         this._HaveWiFi = false;
+        this._Name = 'Process';
     }
     /**
      * @method
@@ -114,15 +121,15 @@ class ClassProcess {
                 Object.defineProperty(global, LOGGER_NAME, ({
                     get: () => Logger
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(LOGGER_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(LOGGER_NAME));
             }
             catch (e) {
-                console.log(`[${this.GetSystemTime()}] FATAL ERROR>> ${this.GetFailString(LOGGER_NAME, mods[LOGGER_NAME])}`)
+                console.log(`[${this.GetSystemTime()}] Process | CRITICAL | ${this.GetFailString(LOGGER_NAME, mods[LOGGER_NAME])}`)
                 return;
             }
             
-            Logger.Log(Logger.LogLevel.INFO, `${MSG_BOARD_ID} ${this._BoardID}`);        
-            Logger.Log(Logger.LogLevel.INFO, `${MSG_LOAD_FILE} ${this._LoadFile}`);
+            Logger.Log(this._Name, Logger.LogLevel.INFO, `${MSG_BOARD_ID} ${this._BoardID}`);        
+            Logger.Log(this._Name, Logger.LogLevel.INFO, `${MSG_LOAD_FILE} ${this._LoadFile}`);
             
 
         /** Basic modules */
@@ -131,10 +138,10 @@ class ClassProcess {
                 Object.defineProperty(global, ERROR_NAME, ({
                     get: () => ClassAppError
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(ERROR_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(ERROR_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(ERROR_NAME, mods[ERROR_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(ERROR_NAME, mods[ERROR_NAME]));
             }
 
             try {// Math module
@@ -143,10 +150,10 @@ class ClassProcess {
                     get: () => AppMath
                 }));
                 AppMath.is();
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(MATH_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(MATH_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(MATH_NAME, mods[MATH_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(MATH_NAME, mods[MATH_NAME]));
             }
 
         /** Bus modules */
@@ -155,10 +162,10 @@ class ClassProcess {
                 Object.defineProperty(global, I2C_NAME, ({
                     get: () => I2Cbus
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(I2C_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(I2C_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(I2C_NAME, mods[I2C_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(I2C_NAME, mods[I2C_NAME]));
             }
 
             try {// SPI
@@ -166,10 +173,10 @@ class ClassProcess {
                 Object.defineProperty(global, SPI_NAME, ({
                     get: () => SPIbus
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(SPI_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(SPI_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(SPI_NAME, mods[SPI_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(SPI_NAME, mods[SPI_NAME]));
             }
 
             try {// UART
@@ -177,10 +184,10 @@ class ClassProcess {
                 Object.defineProperty(global, UART_NAME, ({
                     get: () => UARTbus
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(UART_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(UART_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(UART_NAME, mods[UART_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(UART_NAME, mods[UART_NAME]));
             }
 
         /** Tech modules*/
@@ -189,10 +196,10 @@ class ClassProcess {
                 Object.defineProperty(global, ACTUATOR_NAME, ({
                     get: () => ClassActuator
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(ACTUATOR_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(ACTUATOR_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(ACTUATOR_NAME, mods[ACTUATOR_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(ACTUATOR_NAME, mods[ACTUATOR_NAME]));
             }
         
             try {// Sensors
@@ -200,10 +207,10 @@ class ClassProcess {
                 Object.defineProperty(global, SENSOR_NAME, ({
                     get: () => ClassSensor
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(SENSOR_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(SENSOR_NAME));
             }
             catch (e) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(SENSOR_NAME, mods[SENSOR_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(SENSOR_NAME, mods[SENSOR_NAME]));
             }
 
             try {// Architect
@@ -211,34 +218,36 @@ class ClassProcess {
                 Object.defineProperty(global, ARCHITECT_NAME, ({
                     get: () => SensorManager
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(ARCHITECT_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(ARCHITECT_NAME));
             }
             catch (e) {
                 console.log(e);
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(ARCHITECT_NAME, mods[ARCHITECT_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(ARCHITECT_NAME, mods[ARCHITECT_NAME]));
             }
+
+            this.InitSysEvents();
 
             try {// Websocket server
                 const WSServer = new (require(mods[WS_NAME]))();
                 Object.defineProperty(global, WS_NAME, ({
                     get: () => WSServer
                 }));
-                Logger.Log(Logger.LogLevel.INFO, this.GetSuccessString(WS_NAME));
+                Logger.Log(this._Name, Logger.LogLevel.INFO, this.GetSuccessString(WS_NAME));
             }
             catch (e) {
                 console.log(e);
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(WS_NAME, mods[WS_NAME]));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(WS_NAME, mods[WS_NAME]));
             }
 
         /** Internet connection and system time*/
             if (!(this._FileReader.list().includes(NETWORK_CONFIG))) {
-                Logger.Log(Logger.LogLevel.ERROR, this.GetFailString(WIFI_NAME, NETWORK_CONFIG));
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, this.GetFailString(WIFI_NAME, NETWORK_CONFIG));
                 this.SetSystemTime();
                 this.CheckSystemTime();
-                Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
             }
             else {
-                Logger.Log(Logger.LogLevel.INFO, MSG_WIFI_STARTUP);
+                Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_WIFI_STARTUP);
                 let netconf = this._FileReader.readJSON(NETWORK_CONFIG, true);
                 try {
                     if (process.env.MODULES.includes(WIFI)) {                   
@@ -248,16 +257,15 @@ class ClassProcess {
                             if (this._HaveWiFi) {
                                 let WSRes = WSServer.Run();
                                 if (WSRes == -1) {
-                                    Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                                    Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_WSS_ERROR);
                                 }
                                 else {
-                                    Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                    Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
                                 }
                             }
-                            this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
-                            Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                            Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
                             Object.emit('complete');
                         });              
                     }
@@ -272,39 +280,107 @@ class ClassProcess {
                             if (this._HaveWiFi) {
                                 let WSRes = WSServer.Run();
                                 if (WSRes == -1) {
-                                    Logger.Log(Logger.LogLevel.WARN, MSG_WSS_ERROR);
+                                    Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_WSS_ERROR);
                                 }
                                 else {
-                                    Logger.Log(Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
+                                    Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_WSS_CONNECTED + WSRes);
                                 }
                             }
                             else {
-                                Logger.Log(Logger.LogLevel.WARN, MSG_WSS_SKIPPED);
+                                Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_WSS_SKIPPED);
                             }
-                            this.Sub_GetBoardMData();
                             this.SetSystemTime();
                             this.CheckSystemTime();
-                            Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                            Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
                             Object.emit('complete');
                         });
                     }
                 }
                 catch (e) {
-                    Logger.Log(Logger.LogLevel.ERROR, MSG_WIFI_ERROR + e);
+                    Logger.Log(this._Name, Logger.LogLevel.ERROR, MSG_WIFI_ERROR + e);
                     this.SetSystemTime();
                     this.CheckSystemTime();
-                    Logger.Log(Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
+                    Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_BOOTUP_SUCCESS);
                     Object.emit('complete');
                 }
             }
         }
     }
-    Sub_GetBoardMData(){
+    InitSysEvents() {
+        let node_id = this.GetModuleIdByName(LED_NODE);
+        let led;
+        let bz;
+        let on = false;
+        let interval;
+
+        if (typeof node_id === 'undefined')
+            Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_LED_NOT_SPECIFIED);
+        else {
+            led = SensorManager.CreateDevice(node_id)[0];
+            Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_LED_FOUND + led._ThisActuator._Pins[0]);
+            led.Off();
+        }
+
+        node_id = this.GetModuleIdByName(BUZZ_NODE);
+
+        if (typeof node_id === 'undefined')
+            Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_BUZZ_NOT_SPECIFIED);
+        else {
+            bz = SensorManager.CreateDevice(node_id)[0];
+            Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_BUZZ_FOUND + bz._ThisActuator._Pins[0]);
+        }   
+
+        Object.on('complete', () => {
+            if (bz) {bz.On(0.1)}
+            if (led) {led.On(0.5)}
+            if(Process._HaveWiFi) {
+                LED1.write(true);
+                setTimeout(() => {
+                    if (bz) {bz.On(0.18)}
+                }, 100);
+            }
+            setTimeout(() => {
+                if (bz) {bz.Off()}                
+            }, 200);
+            setTimeout(() => {
+                if (led) {led.On(0.01)}
+            }, 1000);
+        });
+        Object.on('connect', () => {
+            if (bz) {bz.On(0.5)}
+            setTimeout(() => {
+                if (bz) {bz.On(0.9)}
+                setTimeout(() => {
+                    if (bz) {bz.On(1)}
+                    setTimeout(() => {
+                        if (bz) {bz.Off()}
+                    }, 100);
+                }, 100);
+            }, 500);
+            interval = setInterval(() => {
+                on = !on;
+                if (led) {led.On(0.01 + (0.07 * on))}
+            }, 500);
+        });
+        Object.on('disconnect', () => {
+            if (bz) {bz.On(1)}
+            setTimeout(() => {
+                if (bz) {bz.On(0.6)}
+                setTimeout(() => {
+                    if (bz) {bz.On(0.5)}
+                    setTimeout(() => {
+                        if (bz) {bz.Off()}
+                    }, 100);
+                }, 100);
+            }, 500);
+            clearInterval(interval);
+            if (led) {led.On(0.01)}
+        });
         Object.on('proc-get-systemdata', () => {
             let packet = {com: 'proc-return-systemdata', args: [this._BoardName, this._BoardSerial]};
             Object.emit('proc-return', packet);
         });
-        Logger.Log(Logger.LogLevel.INFO, MSG_SUB);
+        Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_SUB);
     }
     /**
      * @method
@@ -360,13 +436,13 @@ class ClassProcess {
             let node_name = this.GetModuleIdByName(RTC_NODE);
 
             if (typeof node_name === 'undefined')
-                Logger.Log(Logger.LogLevel.ERROR, MSG_RTC_NOT_SPECIFIED);
+                Logger.Log(this._Name, Logger.LogLevel.ERROR, MSG_RTC_NOT_SPECIFIED);
             else {
                 this._RTC = SensorManager.CreateDevice(node_name);
                 let ts = this._RTC[0]._ThisSensor.GetTimeUnix();
 
                 if (ts <= TS_JAN_FIRST_2000 || ts >= TS_JAN_FIRST_2100) {
-                    Logger.Log(Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
+                    Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
                 }
                 else {
                     let sys_t = Math.floor(new Date().getTime() / 1000);
@@ -374,19 +450,19 @@ class ClassProcess {
                         setTime(ts);
                         this._RTC[0].Start(1000);
                         E.setTimeZone(this._TimeZone);
-                        Logger.Log(Logger.LogLevel.INFO, MSG_RTC_SUCCESS);
+                        Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_RTC_SUCCESS);
                     }
                     else {
                         this._RTC[0]._ThisSensor.SetTime(new Date());
                         this._RTC[0].Start(1000);
                         E.setTimeZone(this._TimeZone);
-                        Logger.Log(Logger.LogLevel.INFO, MSG_RTC_ADJUSTED);
+                        Logger.Log(this._Name, Logger.LogLevel.INFO, MSG_RTC_ADJUSTED);
                     }
                 }
             }
         }
         catch (e) {
-            Logger.Log(Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
+            Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_RTC_NOT_FOUND);
         }
     }
     /**
@@ -396,10 +472,10 @@ class ClassProcess {
     CheckSystemTime() {
         let final_t_check = Math.floor(new Date().getTime() / 1000);
         if (final_t_check <= TS_JAN_FIRST_2000 || final_t_check >= TS_JAN_FIRST_2100) {
-            Logger.Log(Logger.LogLevel.WARN, MSG_TIME_SET_FAIL);
+            Logger.Log(this._Name, Logger.LogLevel.WARN, MSG_TIME_SET_FAIL);
         }
         else {
-            Logger.Log(Logger.LogLevel.INFO, `${MSG_TIME_SET_SUCCESS} ${this.GetSystemTime()}`);
+            Logger.Log(this._Name, Logger.LogLevel.INFO, `${MSG_TIME_SET_SUCCESS} ${this.GetSystemTime()}`);
         }
     }
     /**
